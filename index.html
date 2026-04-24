@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Inrush Current Analyzer — DC Capacitor Charging</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0d0e;
+    --panel: #111416;
+    --panel-2: #14181a;
+    --border: #1f2427;
+    --border-strong: #2a3135;
+    --text: #d8dee2;
+    --text-dim: #7a8287;
+    --text-mute: #4a5257;
+    --accent: #3ee07a;       /* phosphor green */
+    --accent-dim: #1a7a3f;
+    --amber: #ffb347;        /* voltage trace */
+    --amber-dim: #7a5322;
+    --warn: #ff5a4a;
+    --warn-dim: #6b2218;
+    --grid: #1c2124;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  body {
+    background:
+      radial-gradient(ellipse at top left, rgba(62, 224, 122, 0.04), transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(255, 179, 71, 0.03), transparent 50%),
+      var(--bg);
+    padding: 28px;
+  }
+
+  .shell {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 18px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  header .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+
+  header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  header .dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  header .sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  header .meta {
+    font-size: 10px;
+    color: var(--text-mute);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+    body { padding: 16px; }
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+  }
+
+  .panel-title {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title .badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    background: var(--panel-2);
+    border: 1px solid var(--border-strong);
+    color: var(--text-mute);
+  }
+
+  .panel-body {
+    padding: 16px;
+  }
+
+  /* Inputs */
+  .field {
+    margin-bottom: 14px;
+  }
+
+  .field:last-child { margin-bottom: 0; }
+
+  .field-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .field-label .hint {
+    color: var(--text-mute);
+    font-size: 9px;
+    text-transform: none;
+    letter-spacing: 0.04em;
+  }
+
+  .input-group {
+    display: flex;
+    border: 1px solid var(--border-strong);
+    background: var(--bg);
+    transition: border-color 0.15s ease;
+  }
+
+  .input-group:focus-within {
+    border-color: var(--accent-dim);
+    box-shadow: 0 0 0 1px var(--accent-dim) inset;
+  }
+
+  .input-group input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    padding: 9px 10px;
+    width: 100%;
+  }
+
+  .input-group input:invalid { color: var(--warn); }
+
+  .input-group select {
+    background: var(--panel-2);
+    border: none;
+    border-left: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 0 8px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .input-group .unit {
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    background: var(--panel-2);
+    border-left: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
+  /* Readout cards */
+  .readouts {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  @media (min-width: 1100px) {
+    .readouts { grid-template-columns: repeat(4, 1fr); }
+  }
+
+  .readout {
+    background: var(--panel);
+    padding: 14px 16px;
+    min-height: 78px;
+    position: relative;
+  }
+
+  .readout.primary {
+    background: linear-gradient(180deg, rgba(62,224,122,0.06), var(--panel));
+  }
+
+  .readout.warn {
+    background: linear-gradient(180deg, rgba(255,90,74,0.08), var(--panel));
+  }
+
+  .readout-label {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .readout-value {
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  .readout.primary .readout-value { color: var(--accent); }
+  .readout.warn .readout-value { color: var(--warn); }
+
+  .readout-unit {
+    font-size: 12px;
+    color: var(--text-mute);
+    margin-left: 4px;
+    font-weight: 400;
+  }
+
+  .readout-sub {
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--text-mute);
+    letter-spacing: 0.04em;
+  }
+
+  /* Chart */
+  .chart-wrap {
+    padding: 16px;
+    position: relative;
+  }
+
+  .chart-legend {
+    display: flex;
+    gap: 18px;
+    margin-bottom: 12px;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .chart-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .chart-legend .sw {
+    width: 14px; height: 2px;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 360px;
+  }
+
+  /* Warning banner */
+  .warning {
+    margin-top: 16px;
+    padding: 10px 14px;
+    background: rgba(255, 90, 74, 0.08);
+    border: 1px solid var(--warn-dim);
+    border-left: 3px solid var(--warn);
+    font-size: 12px;
+    color: #ffc7bf;
+    display: none;
+  }
+
+  .warning.active { display: block; }
+
+  .warning strong {
+    color: var(--warn);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 10px;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* Sizing helper */
+  .helper {
+    margin-top: 24px;
+  }
+
+  .helper-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 700px) {
+    .helper-grid { grid-template-columns: 1fr; }
+  }
+
+  .helper-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 13px;
+  }
+
+  .helper-row:last-child { border-bottom: none; }
+
+  .helper-row .k {
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+
+  .helper-row .v {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .helper-row .v .u {
+    color: var(--text-mute);
+    font-size: 11px;
+    margin-left: 3px;
+  }
+
+  .subhead {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text);
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+
+  .subhead-note {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin: -4px 0 12px 0;
+  }
+
+  .subhead-note code {
+    background: var(--bg);
+    color: var(--accent);
+    padding: 1px 4px;
+    font-size: 10px;
+    border: 1px solid var(--border-strong);
+  }
+
+  /* Notes */
+  .notes {
+    margin-top: 24px;
+    padding: 18px 20px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+
+  .notes h3 {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text);
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+
+  .notes p { margin-bottom: 8px; }
+  .notes p:last-child { margin-bottom: 0; }
+
+  .notes code {
+    background: var(--bg);
+    color: var(--accent);
+    padding: 1px 5px;
+    font-size: 11px;
+    border: 1px solid var(--border-strong);
+  }
+
+  footer {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-mute);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <header>
+    <div class="brand">
+      <div class="dot"></div>
+      <h1>Inrush Current Analyzer</h1>
+      <div class="sub">DC Capacitor Charging · RC Transient</div>
+    </div>
+    <div class="meta" id="total-r-meta">R_total = 0.000 Ω</div>
+  </header>
+
+  <div class="grid">
+
+    <!-- INPUT PANEL -->
+    <aside class="panel">
+      <div class="panel-title">
+        Parameters
+        <span class="badge">Live</span>
+      </div>
+      <div class="panel-body">
+
+        <div class="field">
+          <div class="field-label">
+            <span>Source Voltage</span>
+            <span class="hint">V<sub>dc</sub></span>
+          </div>
+          <div class="input-group">
+            <input id="in-voltage" type="number" step="0.1" min="0" value="48" />
+            <span class="unit">V</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <span>Capacitance</span>
+            <span class="hint">C</span>
+          </div>
+          <div class="input-group">
+            <input id="in-cap" type="number" step="1" min="0" value="2000" />
+            <select id="in-cap-unit">
+              <option value="1e-6" selected>µF</option>
+              <option value="1e-3">mF</option>
+              <option value="1">F</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <span>Series Resistance</span>
+            <span class="hint">limiter / NTC cold</span>
+          </div>
+          <div class="input-group">
+            <input id="in-rlimit" type="number" step="0.01" min="0" value="0" />
+            <select id="in-rlimit-unit">
+              <option value="1e-3">mΩ</option>
+              <option value="1" selected>Ω</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <span>Cap ESR</span>
+            <span class="hint">equivalent series R</span>
+          </div>
+          <div class="input-group">
+            <input id="in-esr" type="number" step="1" min="0" value="20" />
+            <span class="unit">mΩ</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <span>Source + Wiring R</span>
+            <span class="hint">PSU + cable + contact</span>
+          </div>
+          <div class="input-group">
+            <input id="in-rsource" type="number" step="1" min="0" value="10" />
+            <span class="unit">mΩ</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <span>Max Load Current</span>
+            <span class="hint">normal operating I</span>
+          </div>
+          <div class="input-group">
+            <input id="in-iload" type="number" step="0.1" min="0" value="2" />
+            <span class="unit">A</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <span>NTC Hot Resistance</span>
+            <span class="hint">after self-heating</span>
+          </div>
+          <div class="input-group">
+            <input id="in-rhot" type="number" step="1" min="0" value="50" />
+            <select id="in-rhot-unit">
+              <option value="1e-3" selected>mΩ</option>
+              <option value="1">Ω</option>
+            </select>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- OUTPUT PANEL -->
+    <section>
+
+      <div class="readouts">
+        <div class="readout primary" id="ro-peak">
+          <div class="readout-label">Peak Inrush</div>
+          <div class="readout-value">— <span class="readout-unit">A</span></div>
+          <div class="readout-sub">at t = 0</div>
+        </div>
+        <div class="readout" id="ro-tau">
+          <div class="readout-label">Time Constant τ</div>
+          <div class="readout-value">— <span class="readout-unit">ms</span></div>
+          <div class="readout-sub">τ = R · C</div>
+        </div>
+        <div class="readout" id="ro-t99">
+          <div class="readout-label">Charge Time (99%)</div>
+          <div class="readout-value">— <span class="readout-unit">ms</span></div>
+          <div class="readout-sub">≈ 4.6 τ</div>
+        </div>
+        <div class="readout" id="ro-energy">
+          <div class="readout-label">Energy Dissipated</div>
+          <div class="readout-value">— <span class="readout-unit">J</span></div>
+          <div class="readout-sub">½ C V² in R</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top: 24px;">
+        <div class="panel-title">
+          Transient Response
+          <span class="badge" id="chart-range">0 — 0 ms</span>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-legend">
+            <span><span class="sw" style="background:var(--accent)"></span> I(t) — Current</span>
+            <span><span class="sw" style="background:var(--amber)"></span> V<sub>C</sub>(t) — Cap Voltage</span>
+          </div>
+          <canvas id="chart"></canvas>
+        </div>
+      </div>
+
+      <div class="warning" id="warning">
+        <strong>Warning</strong>
+        <span id="warning-text"></span>
+      </div>
+
+      <!-- Sizing helper -->
+      <div class="panel helper">
+        <div class="panel-title">
+          Limiter Sizing Helper
+          <span class="badge">Target-driven</span>
+        </div>
+        <div class="panel-body">
+
+          <div class="field" style="margin-bottom: 18px;">
+            <div class="field-label">
+              <span>Target Peak Current</span>
+              <span class="hint">max inrush you want to allow</span>
+            </div>
+            <div class="input-group" style="max-width: 240px;">
+              <input id="in-target-i" type="number" step="0.5" min="0.001" value="5" />
+              <span class="unit">A</span>
+            </div>
+          </div>
+
+          <div class="helper-grid">
+            <div>
+              <div class="helper-row">
+                <span class="k">Required total R</span>
+                <span class="v" id="h-required-r">—</span>
+              </div>
+              <div class="helper-row">
+                <span class="k">R to add (vs current)</span>
+                <span class="v" id="h-added-r">—</span>
+              </div>
+              <div class="helper-row">
+                <span class="k">Peak power in limiter</span>
+                <span class="v" id="h-peak-p">—</span>
+              </div>
+            </div>
+            <div>
+              <div class="helper-row">
+                <span class="k">Energy absorbed by limiter</span>
+                <span class="v" id="h-energy">—</span>
+              </div>
+              <div class="helper-row">
+                <span class="k">New time constant τ</span>
+                <span class="v" id="h-new-tau">—</span>
+              </div>
+              <div class="helper-row">
+                <span class="k">New charge time (99%)</span>
+                <span class="v" id="h-new-t99">—</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- NTC analysis: hot-state + datasheet energy check -->
+      <div class="panel helper">
+        <div class="panel-title">
+          NTC Analysis
+          <span class="badge">Hot-State &amp; Absorption</span>
+        </div>
+        <div class="panel-body">
+
+          <div class="subhead">Steady-State (hot)</div>
+          <div class="helper-grid">
+            <div>
+              <div class="helper-row">
+                <span class="k">Voltage drop on NTC</span>
+                <span class="v" id="h-vdrop">—</span>
+              </div>
+              <div class="helper-row">
+                <span class="k">Voltage delivered to load</span>
+                <span class="v" id="h-vload">—</span>
+              </div>
+            </div>
+            <div>
+              <div class="helper-row">
+                <span class="k">Power on NTC (hot)</span>
+                <span class="v" id="h-phot">—</span>
+              </div>
+              <div class="helper-row">
+                <span class="k">V_drop as % of V_dc</span>
+                <span class="v" id="h-vdrop-pct">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="subhead" style="margin-top: 22px;">Energy Absorption vs. Datasheet</div>
+          <p class="subhead-note">Datasheets rate NTC inrush capability as a max capacitance at a reference voltage. Reverse-calculate the implied one-shot energy and compare with the circuit's actual <code>½CV²</code>.</p>
+
+          <div class="helper-grid" style="margin-bottom: 14px;">
+            <div class="field" style="margin-bottom: 0;">
+              <div class="field-label">
+                <span>Datasheet Ref. Voltage</span>
+                <span class="hint">from spec (e.g. 120, 240, 400)</span>
+              </div>
+              <div class="input-group">
+                <input id="in-vref" type="number" step="1" min="0" value="240" />
+                <span class="unit">V</span>
+              </div>
+            </div>
+
+            <div class="field" style="margin-bottom: 0;">
+              <div class="field-label">
+                <span>Datasheet Max Capacitance</span>
+                <span class="hint">at the ref. voltage</span>
+              </div>
+              <div class="input-group">
+                <input id="in-cref" type="number" step="1" min="0" value="1000" />
+                <select id="in-cref-unit">
+                  <option value="1e-6" selected>µF</option>
+                  <option value="1e-3">mF</option>
+                  <option value="1">F</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="helper-grid">
+            <div>
+              <div class="helper-row">
+                <span class="k">Rated energy absorption</span>
+                <span class="v" id="h-eds">—</span>
+              </div>
+              <div class="helper-row">
+                <span class="k">Circuit energy (½CV²)</span>
+                <span class="v" id="h-ereal">—</span>
+              </div>
+            </div>
+            <div>
+              <div class="helper-row">
+                <span class="k">Utilization</span>
+                <span class="v" id="h-eutil">—</span>
+              </div>
+              <div class="helper-row">
+                <span class="k">Headroom</span>
+                <span class="v" id="h-emargin">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="warning" id="warning-hot" style="margin-top: 16px;">
+            <strong>Warning</strong>
+            <span id="warning-hot-text"></span>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="notes">
+        <h3>Engineer's Notes</h3>
+        <p><strong style="color:var(--text)">Peak current</strong> at switch-on is <code>I_peak = V / R_total</code>. With no external limiter, R_total is just ESR + source/wiring R — often tens of milliohms, giving hundreds or thousands of amps in the first microseconds.</p>
+        <p><strong style="color:var(--text)">Energy</strong> dissipated in the series resistance during charging is exactly <code>½CV²</code>, independent of R. Only the <em>time</em> over which it's dissipated changes. Your limiter must be able to absorb this entire pulse.</p>
+        <p><strong style="color:var(--text)">NTC inrush limiters</strong> (e.g., Ametherm SL-series) present a high cold resistance that drops sharply as they self-heat. Size the cold R from the target peak current; check the one-shot joule rating against the energy figure above.</p>
+        <p><strong style="color:var(--text)">Pre-charge resistor</strong> with bypass contactor/MOSFET is the cleanest approach for persistent loads — size R for acceptable peak current, verify the pulse power rating (typically 10× steady rating for &lt;100 ms), then short it out once V_cap approaches V_dc.</p>
+      </div>
+
+    </section>
+  </div>
+
+  <footer>
+    <span>Model: Ideal RC · I(t) = V/R · exp(−t/RC)</span>
+    <span id="footer-ts"></span>
+  </footer>
+
+</div>
+
+<script>
+  // -------- helpers --------
+  const $ = (id) => document.getElementById(id);
+
+  function formatNumber(x, decimals = 3) {
+    if (!isFinite(x)) return '∞';
+    const a = Math.abs(x);
+    if (a === 0) return '0';
+    if (a >= 1000) return x.toFixed(0);
+    if (a >= 100) return x.toFixed(1);
+    if (a >= 10) return x.toFixed(2);
+    if (a >= 1) return x.toFixed(3);
+    return x.toPrecision(3);
+  }
+
+  function autoUnit(value, base) {
+    // value in base SI (s, Ω, A, J, W); pick scale
+    const a = Math.abs(value);
+    if (!isFinite(value)) return { v: Infinity, u: base };
+    const prefixes = [
+      { mul: 1e9, s: 'G' },
+      { mul: 1e6, s: 'M' },
+      { mul: 1e3, s: 'k' },
+      { mul: 1,   s: '' },
+      { mul: 1e-3, s: 'm' },
+      { mul: 1e-6, s: 'µ' },
+      { mul: 1e-9, s: 'n' },
+    ];
+    if (a === 0) return { v: 0, u: base };
+    for (const p of prefixes) {
+      if (a >= p.mul) return { v: value / p.mul, u: p.s + base };
+    }
+    return { v: value / 1e-9, u: 'n' + base };
+  }
+
+  function autoTime(seconds) {
+    const a = Math.abs(seconds);
+    if (a >= 1) return { v: seconds, u: 's' };
+    if (a >= 1e-3) return { v: seconds * 1e3, u: 'ms' };
+    if (a >= 1e-6) return { v: seconds * 1e6, u: 'µs' };
+    return { v: seconds * 1e9, u: 'ns' };
+  }
+
+  function setReadout(id, value, unit, subtext) {
+    const el = $(id);
+    const valEl = el.querySelector('.readout-value');
+    const subEl = el.querySelector('.readout-sub');
+    if (!isFinite(value)) {
+      valEl.innerHTML = `∞ <span class="readout-unit">${unit}</span>`;
+    } else {
+      valEl.innerHTML = `${formatNumber(value)} <span class="readout-unit">${unit}</span>`;
+    }
+    if (subtext !== undefined) subEl.textContent = subtext;
+  }
+
+  // -------- core calculation --------
+  function readInputs() {
+    const V = parseFloat($('in-voltage').value) || 0;
+    const cVal = parseFloat($('in-cap').value) || 0;
+    const cUnit = parseFloat($('in-cap-unit').value);
+    const C = cVal * cUnit;
+
+    const rLim = parseFloat($('in-rlimit').value) || 0;
+    const rLimUnit = parseFloat($('in-rlimit-unit').value);
+    const R_limit = rLim * rLimUnit;
+
+    const ESR = (parseFloat($('in-esr').value) || 0) * 1e-3;
+    const R_src = (parseFloat($('in-rsource').value) || 0) * 1e-3;
+
+    const R = R_limit + ESR + R_src;
+
+    const targetI = parseFloat($('in-target-i').value) || 0;
+
+    const I_load = parseFloat($('in-iload').value) || 0;
+    const rHot = parseFloat($('in-rhot').value) || 0;
+    const rHotUnit = parseFloat($('in-rhot-unit').value);
+    const R_hot = rHot * rHotUnit;
+
+    const V_ref = parseFloat($('in-vref').value) || 0;
+    const cRefVal = parseFloat($('in-cref').value) || 0;
+    const cRefUnit = parseFloat($('in-cref-unit').value);
+    const C_ref = cRefVal * cRefUnit;
+
+    return { V, C, R, R_limit, ESR, R_src, targetI, I_load, R_hot, V_ref, C_ref };
+  }
+
+  function compute() {
+    const { V, C, R, R_limit, ESR, R_src, targetI, I_load, R_hot, V_ref, C_ref } = readInputs();
+
+    // Primary metrics
+    const I_peak = R > 0 ? V / R : Infinity;
+    const tau = R * C;
+    const t99 = tau * Math.log(100);   // ≈ 4.605 τ
+    const energy = 0.5 * C * V * V;
+    const peakPower = R > 0 ? V * V / R : Infinity;
+
+    // Meta
+    const r = autoUnit(R, 'Ω');
+    $('total-r-meta').textContent = `R_total = ${formatNumber(r.v)} ${r.u}`;
+
+    // Peak inrush
+    setReadout('ro-peak', I_peak, 'A', `at t = 0  ·  P_peak = ${isFinite(peakPower) ? formatNumber(autoUnit(peakPower, 'W').v) + ' ' + autoUnit(peakPower, 'W').u : '∞'}`);
+    $('ro-peak').classList.toggle('warn', I_peak > 100 || !isFinite(I_peak));
+    $('ro-peak').classList.toggle('primary', !(I_peak > 100 || !isFinite(I_peak)));
+
+    // Tau
+    const tauDisp = autoTime(tau);
+    setReadout('ro-tau', tauDisp.v, tauDisp.u, 'τ = R · C');
+
+    // t99
+    const t99Disp = autoTime(t99);
+    setReadout('ro-t99', t99Disp.v, t99Disp.u, `99.9% at ${formatNumber(autoTime(tau * Math.log(1000)).v)} ${autoTime(tau * Math.log(1000)).u}`);
+
+    // Energy
+    const eDisp = autoUnit(energy, 'J');
+    setReadout('ro-energy', eDisp.v, eDisp.u, '½·C·V²  (independent of R)');
+
+    // Warning
+    const wEl = $('warning');
+    const wText = $('warning-text');
+    if (!isFinite(I_peak) || R === 0) {
+      wText.textContent = 'No series resistance defined. Peak current is limited only by parasitics (PCB trace, contact, and PSU output impedance) and can reach thousands of amps. Add a limiter or enter realistic ESR + wiring values.';
+      wEl.classList.add('active');
+    } else if (I_peak > 200) {
+      wText.textContent = `Peak inrush exceeds 200 A. Verify your switching element (MOSFET/relay) can survive this, and consider a pre-charge resistor or NTC inrush limiter. Source needs to deliver ${formatNumber(I_peak)} A for ~${formatNumber(autoTime(tau).v)} ${autoTime(tau).u}.`;
+      wEl.classList.add('active');
+    } else if (I_peak > 50) {
+      wText.textContent = `Peak inrush ≈ ${formatNumber(I_peak)} A. Check that the PSU can sustain it without tripping OCP, and verify switch/cable/connector ratings for this pulse.`;
+      wEl.classList.add('active');
+    } else {
+      wEl.classList.remove('active');
+    }
+
+    // Sizing helper
+    computeHelper(V, C, R, targetI);
+
+    // NTC analysis: hot-state + datasheet energy absorption
+    computeNtcAnalysis(V, C, I_load, R_hot, V_ref, C_ref);
+
+    // Chart
+    drawChart(V, R, C);
+  }
+
+  function computeHelper(V, C, R, targetI) {
+    if (targetI <= 0) {
+      ['h-required-r','h-added-r','h-peak-p','h-energy','h-new-tau','h-new-t99'].forEach(id => {
+        $(id).innerHTML = '—';
+      });
+      return;
+    }
+    const R_req = V / targetI;
+    const R_add = R_req - R;
+    const P_peak = V * targetI;          // = I² R_req = V²/R_req
+    const E = 0.5 * C * V * V;           // total absorbed by all series R; dominated by the limiter if it is much larger than ESR+wiring
+    const newTau = R_req * C;
+    const newT99 = newTau * Math.log(100);
+
+    const fmtUnit = (val, u) => {
+      const a = autoUnit(val, u);
+      return `${formatNumber(a.v)}<span class="u">${a.u}</span>`;
+    };
+    const fmtTime = (s) => {
+      const t = autoTime(s);
+      return `${formatNumber(t.v)}<span class="u">${t.u}</span>`;
+    };
+
+    $('h-required-r').innerHTML = fmtUnit(R_req, 'Ω');
+    $('h-added-r').innerHTML = R_add > 0
+      ? `+ ${fmtUnit(R_add, 'Ω')}`
+      : `<span style="color:var(--text-mute)">already met (R_total &gt; required)</span>`;
+    $('h-peak-p').innerHTML = fmtUnit(P_peak, 'W');
+    $('h-energy').innerHTML = fmtUnit(E, 'J');
+    $('h-new-tau').innerHTML = fmtTime(newTau);
+    $('h-new-t99').innerHTML = fmtTime(newT99);
+  }
+
+  function computeNtcAnalysis(V, C, I_load, R_hot, V_ref, C_ref) {
+    const hotIds = ['h-vdrop','h-vload','h-phot','h-vdrop-pct'];
+    const absIds = ['h-eds','h-ereal','h-eutil','h-emargin'];
+    const wEl = $('warning-hot');
+    const wText = $('warning-hot-text');
+
+    const fmtUnit = (val, u) => {
+      const a = autoUnit(val, u);
+      return `${formatNumber(a.v)}<span class="u">${a.u}</span>`;
+    };
+
+    const warnings = [];
+
+    // --- Hot-state block ---
+    let V_drop = 0, V_load = V, P_hot = 0, dropPct = 0;
+    if (I_load > 0 && R_hot > 0) {
+      V_drop = I_load * R_hot;
+      P_hot = I_load * I_load * R_hot;
+      V_load = V - V_drop;
+      dropPct = V > 0 ? (V_drop / V) * 100 : 0;
+
+      $('h-vdrop').innerHTML = fmtUnit(V_drop, 'V');
+      $('h-vload').innerHTML = V_load >= 0
+        ? fmtUnit(V_load, 'V')
+        : `<span style="color:var(--warn)">${formatNumber(V_load)}<span class="u">V</span></span>`;
+      $('h-phot').innerHTML = fmtUnit(P_hot, 'W');
+      $('h-vdrop-pct').innerHTML = `${formatNumber(dropPct)}<span class="u">%</span>`;
+
+      if (V_load < 0) {
+        warnings.push(`V_load is negative — I_load × R_hot exceeds V_dc. Check your inputs.`);
+      } else if (dropPct > 5) {
+        warnings.push(`Voltage drop on NTC is ${formatNumber(dropPct)}% of V_dc — significant rail loss under load; consider bypassing the NTC with a contactor/relay after pre-charge.`);
+      }
+      if (P_hot > 2) {
+        warnings.push(`Steady-state power on NTC is ${formatNumber(P_hot)} W — verify the NTC's continuous dissipation rating (typical through-hole NTCs: 1–5 W at 25 °C ambient, derate with temperature).`);
+      }
+    } else {
+      hotIds.forEach(id => $(id).innerHTML = '—');
+    }
+
+    // --- Datasheet energy absorption block ---
+    const E_real = 0.5 * C * V * V;
+    if (V_ref > 0 && C_ref > 0) {
+      const E_rated = 0.5 * C_ref * V_ref * V_ref;
+      const util = E_rated > 0 ? (E_real / E_rated) * 100 : Infinity;
+      const headroom = E_rated - E_real;
+
+      $('h-eds').innerHTML = fmtUnit(E_rated, 'J');
+      $('h-ereal').innerHTML = fmtUnit(E_real, 'J');
+
+      const utilColor = util >= 100 ? 'var(--warn)' : (util >= 75 ? 'var(--amber)' : 'var(--accent)');
+      $('h-eutil').innerHTML = `<span style="color:${utilColor}">${formatNumber(util)}<span class="u">%</span></span>`;
+
+      if (headroom >= 0) {
+        $('h-emargin').innerHTML = `+ ${fmtUnit(headroom, 'J')}`;
+      } else {
+        $('h-emargin').innerHTML = `<span style="color:var(--warn)">− ${fmtUnit(-headroom, 'J')}</span>`;
+      }
+
+      if (util >= 100) {
+        warnings.push(`Circuit energy (${formatNumber(autoUnit(E_real,'J').v)} ${autoUnit(E_real,'J').u}) exceeds the NTC's rated absorption (${formatNumber(autoUnit(E_rated,'J').v)} ${autoUnit(E_rated,'J').u}). Pick a larger NTC, split across series/parallel devices, or add a pre-charge + bypass.`);
+      } else if (util >= 75) {
+        warnings.push(`Circuit energy is ${formatNumber(util)}% of the NTC's rated absorption. Margin is thin — consider the next size up, especially if ambient or duty-cycle push the rating down.`);
+      }
+    } else {
+      absIds.forEach(id => $(id).innerHTML = '—');
+    }
+
+    // --- Emit warnings ---
+    if (warnings.length > 0) {
+      wText.innerHTML = warnings.join('<br>');
+      wEl.classList.add('active');
+    } else {
+      wEl.classList.remove('active');
+    }
+  }
+
+  // -------- chart --------
+  const canvas = $('chart');
+  const ctx = canvas.getContext('2d');
+
+  function drawChart(V, R, C) {
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth;
+    const cssH = 360;
+    canvas.width = cssW * dpr;
+    canvas.height = cssH * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const pad = { top: 16, right: 50, bottom: 34, left: 50 };
+    const W = cssW - pad.left - pad.right;
+    const H = cssH - pad.top - pad.bottom;
+
+    // Background
+    ctx.fillStyle = '#0e1113';
+    ctx.fillRect(pad.left, pad.top, W, H);
+
+    if (!(R > 0) || !(C > 0) || !(V > 0) || !isFinite(R)) {
+      // Placeholder
+      ctx.fillStyle = '#4a5257';
+      ctx.font = "12px 'JetBrains Mono', monospace";
+      ctx.textAlign = 'center';
+      ctx.fillText('enter parameters to compute transient', pad.left + W/2, pad.top + H/2);
+      $('chart-range').textContent = '— ms';
+      return;
+    }
+
+    const tau = R * C;
+    const tMax = tau * 5; // show 5τ (capacitor at 99.3%)
+
+    // Axes scales
+    const xScale = t => pad.left + (t / tMax) * W;
+    const iMax = V / R;
+    const yI = i => pad.top + H - (i / iMax) * H;
+    const yV = v => pad.top + H - (v / V) * H;
+
+    // Grid
+    ctx.strokeStyle = '#1c2124';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    // vertical lines at each tau
+    for (let k = 0; k <= 5; k++) {
+      const x = xScale(k * tau);
+      ctx.beginPath();
+      ctx.moveTo(x, pad.top);
+      ctx.lineTo(x, pad.top + H);
+      ctx.stroke();
+    }
+    // horizontal lines (5 divisions)
+    for (let k = 0; k <= 5; k++) {
+      const y = pad.top + (k / 5) * H;
+      ctx.beginPath();
+      ctx.moveTo(pad.left, y);
+      ctx.lineTo(pad.left + W, y);
+      ctx.stroke();
+    }
+
+    // τ dashed markers
+    ctx.strokeStyle = '#2a3135';
+    ctx.setLineDash([2, 4]);
+    for (let k = 1; k <= 5; k++) {
+      const x = xScale(k * tau);
+      ctx.beginPath();
+      ctx.moveTo(x, pad.top);
+      ctx.lineTo(x, pad.top + H);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Axis labels
+    ctx.fillStyle = '#4a5257';
+    ctx.font = "10px 'JetBrains Mono', monospace";
+    ctx.textAlign = 'center';
+    for (let k = 0; k <= 5; k++) {
+      const t = k * tau;
+      const x = xScale(t);
+      const tDisp = autoTime(t);
+      ctx.fillText(`${formatNumber(tDisp.v)}${tDisp.u}`, x, pad.top + H + 16);
+      // tau label
+      if (k > 0) {
+        ctx.fillStyle = '#7a8287';
+        ctx.font = "9px 'JetBrains Mono', monospace";
+        ctx.fillText(`${k}τ`, x, pad.top + H + 28);
+        ctx.fillStyle = '#4a5257';
+        ctx.font = "10px 'JetBrains Mono', monospace";
+      }
+    }
+
+    // Left axis (current, green)
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#3ee07a';
+    for (let k = 0; k <= 5; k++) {
+      const i = (k / 5) * iMax;
+      const y = yI(i);
+      const iDisp = autoUnit(i, 'A');
+      ctx.fillText(`${formatNumber(iDisp.v)}${iDisp.u}`, pad.left - 6, y + 3);
+    }
+
+    // Right axis (voltage, amber)
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffb347';
+    for (let k = 0; k <= 5; k++) {
+      const v = (k / 5) * V;
+      const y = yV(v);
+      ctx.fillText(`${formatNumber(v)}V`, pad.left + W + 6, y + 3);
+    }
+
+    // Plot I(t) and V(t)
+    const steps = 400;
+    // Current trace (exponential decay)
+    ctx.strokeStyle = '#3ee07a';
+    ctx.shadowColor = 'rgba(62,224,122,0.6)';
+    ctx.shadowBlur = 6;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let k = 0; k <= steps; k++) {
+      const t = (k / steps) * tMax;
+      const i = iMax * Math.exp(-t / tau);
+      const x = xScale(t);
+      const y = yI(i);
+      if (k === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Voltage trace (charging curve)
+    ctx.strokeStyle = '#ffb347';
+    ctx.shadowColor = 'rgba(255,179,71,0.5)';
+    ctx.shadowBlur = 5;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let k = 0; k <= steps; k++) {
+      const t = (k / steps) * tMax;
+      const v = V * (1 - Math.exp(-t / tau));
+      const x = xScale(t);
+      const y = yV(v);
+      if (k === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Peak dot
+    ctx.fillStyle = '#3ee07a';
+    ctx.beginPath();
+    ctx.arc(xScale(0), yI(iMax), 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Range badge
+    const rangeDisp = autoTime(tMax);
+    $('chart-range').textContent = `0 — ${formatNumber(rangeDisp.v)} ${rangeDisp.u}`;
+  }
+
+  // -------- wiring --------
+  const inputs = document.querySelectorAll('input, select');
+  inputs.forEach(el => el.addEventListener('input', compute));
+  window.addEventListener('resize', compute);
+
+  // Timestamp footer
+  $('footer-ts').textContent = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
+
+  // Initial compute
+  compute();
+</script>
+
+</body>
+</html>
